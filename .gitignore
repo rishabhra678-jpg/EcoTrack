@@ -1,0 +1,18 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Scikit-learn model files (generated on first execution)
+models/carbon_predictor.pkl
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Virtual environment files
+.venv/
+venv/
+env/
+ENV/

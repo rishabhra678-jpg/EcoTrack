@@ -1,0 +1,12 @@
+Category,Activity,Factor,Unit
+Transportation,Car,0.192,kg CO2/km
+Transportation,Bike,0.103,kg CO2/km
+Transportation,Bus,0.105,kg CO2/km
+Transportation,Train,0.041,kg CO2/km
+Electricity,Grid,0.82,kg CO2/kWh
+Water,Tap,0.0003,kg CO2/liter
+Waste,Trash,0.57,kg CO2/kg
+Food,Vegan,2.0,kg CO2/day
+Food,Vegetarian,3.0,kg CO2/day
+Food,Mixed Diet,5.0,kg CO2/day
+Food,Heavy Meat Diet,7.0,kg CO2/day
