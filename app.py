@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 from PIL import Image
 
 # Set Streamlit Page Configuration at the very top
@@ -341,13 +342,13 @@ with tab_history:
         # 3. History trend chart
         if len(st.session_state.history) > 1:
             st.markdown("#### Footprint Progress Trend")
-            trend_fig = go.Figure(go.Scatter(
+            trend_fig = go.Figure(data=[go.Scatter(
                 x=history_df["timestamp"],
                 y=history_df["daily_footprint"],
                 mode='lines+markers',
                 line=dict(color='#10B981', width=3),
                 marker=dict(size=8, color='#059669')
-            ))
+            )])
             trend_fig.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
