@@ -467,13 +467,13 @@ with tab_air:
 
             with right:
                 st.markdown("#### City location")
-                map_fig = go.Figure(go.Scattermap(
+                map_fig = go.Figure(go.Scattermapbox(
                     lat=[location["latitude"]], lon=[location["longitude"]],
                     mode="markers", marker=dict(size=18, color="#10B981"),
                     text=[location["name"]], hoverinfo="text",
                 ))
                 map_fig.update_layout(
-                    map=dict(style="open-street-map", center=dict(
+                    mapbox=dict(style="open-street-map", center=dict(
                         lat=location["latitude"], lon=location["longitude"]
                     ), zoom=9),
                     margin=dict(t=0, b=0, l=0, r=0), height=300,
