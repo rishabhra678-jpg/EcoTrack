@@ -1,8 +1,34 @@
 import os
+import inspect
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from PIL import Image
+
+# Compatibility helpers for Streamlit container stretching across versions
+def _render_plotly_chart(fig, **kwargs):
+    sig = inspect.signature(st.plotly_chart)
+    if "width" in sig.parameters:
+        return st.plotly_chart(fig, width="stretch", **kwargs)
+    return st.plotly_chart(fig, use_container_width=True, **kwargs)
+
+def _render_button(label, **kwargs):
+    sig = inspect.signature(st.button)
+    if "width" in sig.parameters:
+        return st.button(label, width="stretch", **kwargs)
+    return st.button(label, use_container_width=True, **kwargs)
+
+def _render_image(image, **kwargs):
+    sig = inspect.signature(st.image)
+    if "width" in sig.parameters:
+        return st.image(image, width="stretch", **kwargs)
+    return st.image(image, use_container_width=True, **kwargs)
+
+def _render_dataframe(data, **kwargs):
+    sig = inspect.signature(st.dataframe)
+    if "width" in sig.parameters:
+        return st.dataframe(data, width="stretch", **kwargs)
+    return st.dataframe(data, use_container_width=True, **kwargs)
 
 # Set Streamlit Page Configuration at the very top
 st.set_page_config(
@@ -89,7 +115,7 @@ with col_logo:
     if os.path.exists(logo_path):
         try:
             img = Image.open(logo_path)
-            st.image(img, use_container_width=True)
+            _render_image(img)
         except Exception:
             st.markdown("<div style='font-size: 3rem;'>🌱</div>", unsafe_allow_html=True)
     else:
@@ -162,12 +188,12 @@ with tab_dash:
     with col_donut:
         st.markdown("<h3 style='color: #F8FAFC; font-size: 1.25rem; font-weight:600;'>Emissions Breakdown</h3>", unsafe_allow_html=True)
         donut_fig = create_donut_chart(emissions)
-        st.plotly_chart(donut_fig, use_container_width=True)
+        _render_plotly_chart(donut_fig)
         
     with col_bar:
         st.markdown("<h3 style='color: #F8FAFC; font-size: 1.25rem; font-weight:600;'>Category Comparison</h3>", unsafe_allow_html=True)
         bar_fig = create_bar_chart(emissions)
-        st.plotly_chart(bar_fig, use_container_width=True)
+        _render_plotly_chart(bar_fig)
         
     # 4. Recommendation Cards
     st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 30px 0;'>", unsafe_allow_html=True)
@@ -298,7 +324,7 @@ with tab_goals:
     st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 25px 0;'>", unsafe_allow_html=True)
     st.markdown("#### 📅 12-Month Cumulative Projection Analysis", unsafe_allow_html=True)
     projection_fig = create_projection_chart(monthly_total, total_annual_savings)
-    st.plotly_chart(projection_fig, use_container_width=True)
+    _render_plotly_chart(projection_fig)
 
 # ----------------- TAB 4: HISTORY & EXPORTS -----------------
 with tab_history:
@@ -336,12 +362,12 @@ with tab_history:
         })
         
         st.markdown("#### Saved Activity Log")
-        st.dataframe(display_df.style.format({
+        _render_dataframe(display_df.style.format({
             "Car (km/day)": "{:.1f}",
             "Electricity (kWh/mo)": "{:.0f}",
             "Waste (kg/day)": "{:.1f}",
             "Footprint (kg CO₂/day)": "{:.2f}"
-        }), use_container_width=True)
+        }))
         
         # 3. History trend chart
         if len(st.session_state.history) > 1:
@@ -370,7 +396,7 @@ with tab_history:
                 margin=dict(t=10, b=40, l=10, r=10),
                 height=250
             )
-            st.plotly_chart(trend_fig, use_container_width=True)
+            _render_plotly_chart(trend_fig)
     else:
         st.info("No calculations logged yet. Adjust sidebar sliders to record values.")
 
@@ -400,7 +426,7 @@ with tab_air:
         )
     with refresh_col:
         st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
-        refresh_air = st.button("Refresh data", use_container_width=True)
+        refresh_air = _render_button("Refresh data")
 
     if refresh_air:
         load_city_air_quality.clear()
@@ -422,11 +448,27 @@ with tab_air:
                 "Source: Open-Meteo modelled air-quality data · AQI scale: US EPA"
             )
 
+            def _fmt_metric_int(val):
+                if val is None:
+                    return "N/A"
+                try:
+                    return str(round(float(val)))
+                except (ValueError, TypeError):
+                    return "N/A"
+
+            def _fmt_metric_float(val, unit=""):
+                if val is None:
+                    return "N/A"
+                try:
+                    return f"{float(val):.1f} {unit}".strip()
+                except (ValueError, TypeError):
+                    return "N/A"
+
             metric_cols = st.columns(4)
-            metric_cols[0].metric("US AQI estimate", round(float(current["us_aqi"])) if current.get("us_aqi") is not None else "N/A")
-            metric_cols[1].metric("PM2.5", f"{float(current['pm2_5']):.1f} µg/m³" if current.get("pm2_5") is not None else "N/A")
-            metric_cols[2].metric("PM10", f"{float(current['pm10']):.1f} µg/m³" if current.get("pm10") is not None else "N/A")
-            metric_cols[3].metric("European AQI", round(float(current["european_aqi"])) if current.get("european_aqi") is not None else "N/A")
+            metric_cols[0].metric("US AQI estimate", _fmt_metric_int(current.get("us_aqi")))
+            metric_cols[1].metric("PM2.5", _fmt_metric_float(current.get("pm2_5"), "µg/m³"))
+            metric_cols[2].metric("PM10", _fmt_metric_float(current.get("pm10"), "µg/m³"))
+            metric_cols[3].metric("European AQI", _fmt_metric_int(current.get("european_aqi")))
 
             st.markdown(
                 f"<div style='border-left: 5px solid {category['color']}; padding: 12px 16px; "
@@ -444,7 +486,10 @@ with tab_air:
             for key, label in pollutant_labels.items():
                 value = current.get(key)
                 if value is not None:
-                    pollutant_values.append({"Pollutant": label, "Concentration (µg/m³)": float(value)})
+                    try:
+                        pollutant_values.append({"Pollutant": label, "Concentration (µg/m³)": float(value)})
+                    except (ValueError, TypeError):
+                        pass
 
             left, right = st.columns([1, 1])
             with left:
@@ -461,43 +506,60 @@ with tab_air:
                         font_color="#F8FAFC", yaxis_title="µg/m³",
                         margin=dict(t=15, b=15, l=10, r=10), height=300,
                     )
-                    st.plotly_chart(fig_pollutants, use_container_width=True)
+                    _render_plotly_chart(fig_pollutants)
                 else:
                     st.info("No pollutant concentration readings were returned.")
 
             with right:
                 st.markdown("#### City location")
-                map_fig = go.Figure(go.Scattermapbox(
-                    lat=[location["latitude"]], lon=[location["longitude"]],
-                    mode="markers", marker=dict(size=18, color="#10B981"),
-                    text=[location["name"]], hoverinfo="text",
-                ))
-                map_fig.update_layout(
-                    mapbox=dict(style="open-street-map", center=dict(
-                        lat=location["latitude"], lon=location["longitude"]
-                    ), zoom=9),
-                    margin=dict(t=0, b=0, l=0, r=0), height=300,
-                )
-                st.plotly_chart(map_fig, use_container_width=True)
+                if hasattr(go, "Scattermap"):
+                    map_fig = go.Figure(go.Scattermap(
+                        lat=[location["latitude"]], lon=[location["longitude"]],
+                        mode="markers", marker=dict(size=18, color="#10B981"),
+                        text=[location["name"]], hoverinfo="text",
+                    ))
+                    map_fig.update_layout(
+                        map=dict(style="open-street-map", center=dict(
+                            lat=location["latitude"], lon=location["longitude"]
+                        ), zoom=9),
+                        margin=dict(t=0, b=0, l=0, r=0), height=300,
+                    )
+                else:
+                    map_fig = go.Figure(go.Scattermapbox(
+                        lat=[location["latitude"]], lon=[location["longitude"]],
+                        mode="markers", marker=dict(size=18, color="#10B981"),
+                        text=[location["name"]], hoverinfo="text",
+                    ))
+                    map_fig.update_layout(
+                        mapbox=dict(style="open-street-map", center=dict(
+                            lat=location["latitude"], lon=location["longitude"]
+                        ), zoom=9),
+                        margin=dict(t=0, b=0, l=0, r=0), height=300,
+                    )
+                _render_plotly_chart(map_fig)
 
             hourly = air_payload.get("hourly", {})
             if hourly.get("time") and hourly.get("us_aqi"):
-                st.markdown("#### AQI trend · next available forecast hours")
-                trend_df = pd.DataFrame({
-                    "Time": pd.to_datetime(hourly["time"]),
-                    "US AQI": hourly["us_aqi"],
-                }).dropna().head(24)
-                if not trend_df.empty:
-                    trend_fig = go.Figure(go.Scatter(
-                        x=trend_df["Time"], y=trend_df["US AQI"],
-                        mode="lines+markers", line=dict(color="#10B981", width=3),
-                    ))
-                    trend_fig.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                        font_color="#F8FAFC", yaxis_title="US AQI",
-                        margin=dict(t=15, b=15, l=10, r=10), height=280,
-                    )
-                    st.plotly_chart(trend_fig, use_container_width=True)
+                times = hourly["time"]
+                aqis = hourly["us_aqi"]
+                min_len = min(len(times), len(aqis))
+                if min_len > 0:
+                    st.markdown("#### AQI trend · next available forecast hours")
+                    trend_df = pd.DataFrame({
+                        "Time": pd.to_datetime(times[:min_len]),
+                        "US AQI": aqis[:min_len],
+                    }).dropna().head(24)
+                    if not trend_df.empty:
+                        trend_fig = go.Figure(go.Scatter(
+                            x=trend_df["Time"], y=trend_df["US AQI"],
+                            mode="lines+markers", line=dict(color="#10B981", width=3),
+                        ))
+                        trend_fig.update_layout(
+                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                            font_color="#F8FAFC", yaxis_title="US AQI",
+                            margin=dict(t=15, b=15, l=10, r=10), height=280,
+                        )
+                        _render_plotly_chart(trend_fig)
 
             st.markdown("#### Ask EcoTrack about this city's air")
             question = st.text_input(
@@ -524,7 +586,7 @@ with tab_air:
         st.info("Enter a city name to view its air-quality estimates.")
 
 
-# ----------------- TAB 5: LEARN MORE -----------------
+# ----------------- TAB 6: LEARN MORE -----------------
 with tab_learn:
     st.markdown("### 📖 Science & Educational Reference")
     st.markdown(

@@ -14,7 +14,7 @@ class AirQualityError(RuntimeError):
 
 def geocode_city(city: str) -> dict:
     """Return the best matching city with latitude/longitude and country."""
-    city = city.strip()
+    city = (city or "").strip()
     if not city:
         raise AirQualityError("Enter a city name to search.")
 
@@ -27,7 +27,15 @@ def geocode_city(city: str) -> dict:
         response.raise_for_status()
         results = response.json().get("results") or []
     except requests.RequestException as exc:
-        raise AirQualityError("Location search is temporarily unavailable. Please try again.") from exc
+        msg = "Location search is temporarily unavailable. Please try again."
+        if hasattr(exc, "response") and exc.response is not None:
+            try:
+                err_data = exc.response.json()
+                if isinstance(err_data, dict) and "reason" in err_data:
+                    msg = f"Location service error: {err_data['reason']}"
+            except Exception:
+                pass
+        raise AirQualityError(msg) from exc
     except ValueError as exc:
         raise AirQualityError("The location service returned an invalid response.") from exc
 
@@ -39,21 +47,31 @@ def geocode_city(city: str) -> dict:
         (item for item in results if item.get("name", "").casefold() == city.casefold()),
         results[0],
     )
+
+    if "latitude" not in match or "longitude" not in match:
+        raise AirQualityError(f"Location coordinates not found for '{city}'.")
+
     return {
         "name": match.get("name", city),
         "admin1": match.get("admin1", ""),
         "country": match.get("country", ""),
-        "latitude": match["latitude"],
-        "longitude": match["longitude"],
+        "latitude": float(match["latitude"]),
+        "longitude": float(match["longitude"]),
         "timezone": match.get("timezone", "auto"),
     }
 
 
 def fetch_air_quality(latitude: float, longitude: float, timezone: str = "auto") -> dict:
     """Fetch current and hourly pollutant/AQI estimates from Open-Meteo."""
+    try:
+        lat = float(latitude)
+        lon = float(longitude)
+    except (ValueError, TypeError) as exc:
+        raise AirQualityError("Invalid coordinates provided for air-quality fetch.") from exc
+
     params = {
-        "latitude": latitude,
-        "longitude": longitude,
+        "latitude": lat,
+        "longitude": lon,
         "current": (
             "us_aqi,european_aqi,pm10,pm2_5,carbon_monoxide,"
             "nitrogen_dioxide,sulphur_dioxide,ozone"
@@ -67,7 +85,15 @@ def fetch_air_quality(latitude: float, longitude: float, timezone: str = "auto")
         response.raise_for_status()
         payload = response.json()
     except requests.RequestException as exc:
-        raise AirQualityError("Air-quality data could not be fetched right now. Please retry shortly.") from exc
+        msg = "Air-quality data could not be fetched right now. Please retry shortly."
+        if hasattr(exc, "response") and exc.response is not None:
+            try:
+                err_data = exc.response.json()
+                if isinstance(err_data, dict) and "reason" in err_data:
+                    msg = f"Air-quality service error: {err_data['reason']}"
+            except Exception:
+                pass
+        raise AirQualityError(msg) from exc
     except ValueError as exc:
         raise AirQualityError("The air-quality service returned an invalid response.") from exc
 
