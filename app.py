@@ -18,6 +18,9 @@ from recommendations import generate_recommendations, render_recommendation_card
 from visualizations import create_donut_chart, create_bar_chart, create_projection_chart
 from predictor import predict_next_month
 from utils import inject_custom_css, generate_csv_report, initialize_session_state, log_calculation_history
+from air_quality.api import AirQualityError, fetch_air_quality, geocode_city
+from air_quality.analysis import aqi_category, build_air_quality_insight
+from air_quality.assistant import answer_air_quality_question
 
 # Initialize session state logs & CSS styles
 initialize_session_state()
@@ -97,11 +100,12 @@ with col_title:
     st.markdown("<p class='subtitle'>Carbon Footprint Awareness & Reduction Platform</p>", unsafe_allow_html=True)
 
 # Main Application Tabs
-tab_dash, tab_ai, tab_goals, tab_history, tab_learn = st.tabs([
+tab_dash, tab_ai, tab_goals, tab_history, tab_air, tab_learn = st.tabs([
     "📊 Personal Dashboard",
     "🤖 AI Predictor",
     "🎯 Reduction Goals",
     "⏳ Session History",
+    "🌫️ Urban Air Quality",
     "📖 Learn More"
 ])
 
@@ -369,6 +373,156 @@ with tab_history:
             st.plotly_chart(trend_fig, use_container_width=True)
     else:
         st.info("No calculations logged yet. Adjust sidebar sliders to record values.")
+
+# ----------------- TAB 5: URBAN AIR QUALITY -----------------
+with tab_air:
+    st.markdown("### 🌫️ Urban Air Quality Assistant")
+    st.write(
+        "Explore current modelled air-quality estimates, pollutant levels and the near-term trend "
+        "for a city. Data is provided by Open-Meteo and is not a substitute for an official local monitoring station."
+    )
+
+    @st.cache_data(ttl=900, show_spinner=False)
+    def load_city_air_quality(city_name):
+        location = geocode_city(city_name)
+        payload = fetch_air_quality(
+            location["latitude"], location["longitude"], location.get("timezone", "auto")
+        )
+        return location, payload
+
+    city_col, refresh_col = st.columns([4, 1])
+    with city_col:
+        city_name = st.text_input(
+            "Search city",
+            value=st.session_state.get("air_quality_city", "Bhopal"),
+            placeholder="Enter a city, e.g. Bhopal",
+            key="air_quality_city_input",
+        )
+    with refresh_col:
+        st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
+        refresh_air = st.button("Refresh data", use_container_width=True)
+
+    if refresh_air:
+        load_city_air_quality.clear()
+
+    if city_name.strip():
+        try:
+            with st.spinner("Fetching the latest available air-quality estimates..."):
+                location, air_payload = load_city_air_quality(city_name.strip())
+            current = air_payload["current"]
+            category = aqi_category(current.get("us_aqi"))
+
+            st.markdown(
+                f"**{location['name']}**"
+                + (f", {location['admin1']}" if location.get("admin1") else "")
+                + (f", {location['country']}" if location.get("country") else "")
+            )
+            st.caption(
+                f"Updated: {current.get('time', 'Not provided')} · "
+                "Source: Open-Meteo modelled air-quality data · AQI scale: US EPA"
+            )
+
+            metric_cols = st.columns(4)
+            metric_cols[0].metric("US AQI estimate", round(float(current["us_aqi"])) if current.get("us_aqi") is not None else "N/A")
+            metric_cols[1].metric("PM2.5", f"{float(current['pm2_5']):.1f} µg/m³" if current.get("pm2_5") is not None else "N/A")
+            metric_cols[2].metric("PM10", f"{float(current['pm10']):.1f} µg/m³" if current.get("pm10") is not None else "N/A")
+            metric_cols[3].metric("European AQI", round(float(current["european_aqi"])) if current.get("european_aqi") is not None else "N/A")
+
+            st.markdown(
+                f"<div style='border-left: 5px solid {category['color']}; padding: 12px 16px; "
+                f"background: rgba(100,116,139,0.12); border-radius: 8px; margin: 12px 0;'>"
+                f"<strong>{category['label']}</strong><br>{category['advice']}</div>",
+                unsafe_allow_html=True,
+            )
+
+            pollutant_labels = {
+                "pm2_5": "PM2.5", "pm10": "PM10",
+                "nitrogen_dioxide": "NO₂", "sulphur_dioxide": "SO₂",
+                "ozone": "O₃", "carbon_monoxide": "CO",
+            }
+            pollutant_values = []
+            for key, label in pollutant_labels.items():
+                value = current.get(key)
+                if value is not None:
+                    pollutant_values.append({"Pollutant": label, "Concentration (µg/m³)": float(value)})
+
+            left, right = st.columns([1, 1])
+            with left:
+                st.markdown("#### Pollutant readings")
+                if pollutant_values:
+                    pollutant_df = pd.DataFrame(pollutant_values)
+                    fig_pollutants = go.Figure(go.Bar(
+                        x=pollutant_df["Pollutant"],
+                        y=pollutant_df["Concentration (µg/m³)"],
+                        marker_color="#10B981",
+                    ))
+                    fig_pollutants.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        font_color="#F8FAFC", yaxis_title="µg/m³",
+                        margin=dict(t=15, b=15, l=10, r=10), height=300,
+                    )
+                    st.plotly_chart(fig_pollutants, use_container_width=True)
+                else:
+                    st.info("No pollutant concentration readings were returned.")
+
+            with right:
+                st.markdown("#### City location")
+                map_fig = go.Figure(go.Scattermap(
+                    lat=[location["latitude"]], lon=[location["longitude"]],
+                    mode="markers", marker=dict(size=18, color="#10B981"),
+                    text=[location["name"]], hoverinfo="text",
+                ))
+                map_fig.update_layout(
+                    map=dict(style="open-street-map", center=dict(
+                        lat=location["latitude"], lon=location["longitude"]
+                    ), zoom=9),
+                    margin=dict(t=0, b=0, l=0, r=0), height=300,
+                )
+                st.plotly_chart(map_fig, use_container_width=True)
+
+            hourly = air_payload.get("hourly", {})
+            if hourly.get("time") and hourly.get("us_aqi"):
+                st.markdown("#### AQI trend · next available forecast hours")
+                trend_df = pd.DataFrame({
+                    "Time": pd.to_datetime(hourly["time"]),
+                    "US AQI": hourly["us_aqi"],
+                }).dropna().head(24)
+                if not trend_df.empty:
+                    trend_fig = go.Figure(go.Scatter(
+                        x=trend_df["Time"], y=trend_df["US AQI"],
+                        mode="lines+markers", line=dict(color="#10B981", width=3),
+                    ))
+                    trend_fig.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        font_color="#F8FAFC", yaxis_title="US AQI",
+                        margin=dict(t=15, b=15, l=10, r=10), height=280,
+                    )
+                    st.plotly_chart(trend_fig, use_container_width=True)
+
+            st.markdown("#### Ask EcoTrack about this city's air")
+            question = st.text_input(
+                "Your question",
+                placeholder="Is it a good time to go running?",
+                key="air_quality_question",
+            )
+            if st.button("Ask EcoTrack AI", key="ask_air_quality"):
+                st.markdown(answer_air_quality_question(question, current))
+
+            with st.expander("How to interpret this data"):
+                st.markdown(build_air_quality_insight(current))
+                st.caption(
+                    "Open-Meteo's US AQI and European AQI are different scales. "
+                    "This release does not calculate CPCB India AQI. For official Indian AQI advisories, "
+                    "consult CPCB monitoring and guidance."
+                )
+
+        except AirQualityError as exc:
+            st.error(str(exc))
+        except (KeyError, TypeError, ValueError) as exc:
+            st.error("The air-quality response was incomplete or could not be displayed. Please refresh and try again.")
+    else:
+        st.info("Enter a city name to view its air-quality estimates.")
+
 
 # ----------------- TAB 5: LEARN MORE -----------------
 with tab_learn:
