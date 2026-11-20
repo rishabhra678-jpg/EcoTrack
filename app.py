@@ -47,6 +47,7 @@ from utils import inject_custom_css, generate_csv_report, initialize_session_sta
 from air_quality.api import AirQualityError, fetch_air_quality, geocode_city
 from air_quality.analysis import aqi_category, build_air_quality_insight
 from air_quality.assistant import answer_air_quality_question
+from genai_service import generate_ecocoach_plan
 
 # Initialize session state logs & CSS styles
 initialize_session_state()
@@ -81,6 +82,16 @@ with st.sidebar.expander("🥗 Diet & Waste Habits", expanded=True):
         index=2
     )
     waste = st.slider("Daily Waste Generated (kg)", min_value=0.0, max_value=10.0, value=1.5, step=0.1)
+
+with st.sidebar.expander("🤖 GenAI Settings (Gemini)", expanded=False):
+    gemini_key_input = st.text_input(
+        "Google Gemini API Key",
+        type="password",
+        placeholder="Enter API key...",
+        help="Optional. Enter a Google Gemini API Key to enable GenAI responses, or configure GEMINI_API_KEY in Streamlit Secrets.",
+        key="gemini_api_key_input",
+    )
+    st.caption("Get a free key from [Google AI Studio](https://aistudio.google.com/).")
 
 # Group user inputs together
 user_inputs = {
@@ -207,6 +218,40 @@ with tab_dash:
     
     for r in recs:
         st.markdown(render_recommendation_card(r), unsafe_allow_html=True)
+
+    # 5. AI EcoCoach Section
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 25px 0;'>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #10B981; margin-bottom: 10px;'>✨ AI EcoCoach · Personalized Reduction Roadmap</h3>", unsafe_allow_html=True)
+    st.write("Generate a custom-tailored 30-day carbon reduction roadmap and financial savings estimate powered by Google Gemini.")
+    
+    if st.button("Generate AI EcoCoach Plan", key="btn_generate_ecocoach"):
+        with st.spinner("EcoCoach AI is evaluating your footprint profile and designing your plan..."):
+            ai_plan = generate_ecocoach_plan(
+                user_inputs=user_inputs,
+                emissions=emissions,
+                sustainability_score=sustainability_score,
+                classification=classification,
+                api_key=gemini_key_input,
+            )
+            if ai_plan:
+                st.session_state["ecocoach_plan"] = ai_plan
+            else:
+                st.session_state["ecocoach_plan"] = None
+
+    if st.session_state.get("ecocoach_plan"):
+        st.markdown(
+            """
+            <div style="display: inline-block; background: rgba(16,185,129,0.15); border: 1px solid #10B981; color: #10B981; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; margin-bottom: 15px;">
+                ✨ Powered by Gemini GenAI
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown(st.session_state["ecocoach_plan"])
+    elif st.session_state.get("ecocoach_plan") is None and "ecocoach_plan" in st.session_state:
+        st.info("💡 To generate a custom generative AI plan, provide a Gemini API key in the sidebar or Streamlit Secrets. In the meantime, explore your personalized recommendations above!")
+    elif not gemini_key_input:
+        st.caption("💡 Tip: Enter a free Google Gemini API key in the sidebar to generate a live generative AI roadmap.")
 
 # ----------------- TAB 2: AI PREDICTOR -----------------
 with tab_ai:
@@ -568,7 +613,18 @@ with tab_air:
                 key="air_quality_question",
             )
             if st.button("Ask EcoTrack AI", key="ask_air_quality"):
-                st.markdown(answer_air_quality_question(question, current))
+                with st.spinner("EcoTrack AI is analyzing current atmospheric data..."):
+                    answer = answer_air_quality_question(
+                        question=question,
+                        current=current,
+                        city_name=location["name"],
+                        category=category,
+                        api_key=gemini_key_input,
+                    )
+                st.session_state["air_quality_response"] = answer
+
+            if "air_quality_response" in st.session_state and st.session_state["air_quality_response"]:
+                st.markdown(st.session_state["air_quality_response"])
 
             with st.expander("How to interpret this data"):
                 st.markdown(build_air_quality_insight(current))
