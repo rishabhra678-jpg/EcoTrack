@@ -134,25 +134,25 @@ def render_recommendation_card(rec):
     card_colors = {
         "success": {
             "border": "#10B981",
-            "bg": "rgba(16, 185, 129, 0.1)",
+            "bg": "rgba(16, 185, 129, 0.12)",
             "badge": "#059669",
             "text": "#F8FAFC"
         },
         "info": {
             "border": "#3B82F6",
-            "bg": "rgba(59, 130, 246, 0.1)",
+            "bg": "rgba(59, 130, 246, 0.12)",
             "badge": "#2563EB",
             "text": "#F8FAFC"
         },
         "warning": {
             "border": "#F59E0B",
-            "bg": "rgba(245, 158, 11, 0.1)",
-            "badge": "#D97706",
+            "bg": "rgba(245, 158, 11, 0.12)",
+            "badge": "#B45309",
             "text": "#F8FAFC"
         },
         "danger": {
             "border": "#EF4444",
-            "bg": "rgba(239, 68, 68, 0.1)",
+            "bg": "rgba(239, 68, 68, 0.12)",
             "badge": "#DC2626",
             "text": "#F8FAFC"
         }
@@ -161,13 +161,13 @@ def render_recommendation_card(rec):
     theme = card_colors.get(rec["type"], card_colors["info"])
     savings_badge = ""
     if rec["savings"] > 0:
-        savings_badge = f'<span style="background-color: {theme["badge"]}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; margin-left: 10px;">-{rec["savings"]:.1f} kg CO₂/yr</span>'
+        savings_badge = f'<span style="background-color: {theme["badge"]}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; margin-left: 10px;" aria-label="Estimated annual savings: {rec["savings"]:.1f} kilograms of CO2">-{rec["savings"]:.1f} kg CO₂/yr</span>'
         
     html = f"""
-    <div style="border-left: 5px solid {theme["border"]}; background-color: {theme["bg"]}; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); transition: transform 0.2s ease-in-out;">
+    <div role="region" aria-label="{rec['category']} recommendation: {rec['title']}" style="border-left: 5px solid {theme["border"]}; background-color: {theme["bg"]}; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); transition: transform 0.2s ease-in-out;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
             <div style="display: flex; align-items: center;">
-                <span style="font-size: 1.5rem; margin-right: 10px;">{rec["icon"]}</span>
+                <span style="font-size: 1.5rem; margin-right: 10px;" aria-hidden="true">{rec["icon"]}</span>
                 <strong style="color: {theme["text"]}; font-size: 1.05rem;">{rec["title"]}</strong>
             </div>
             <div>
@@ -175,7 +175,7 @@ def render_recommendation_card(rec):
                 {savings_badge}
             </div>
         </div>
-        <p style="color: #94A3B8; font-size: 0.9rem; margin: 0; line-height: 1.4;">{rec["description"]}</p>
+        <p style="color: #CBD5E1; font-size: 0.95rem; margin: 0; line-height: 1.5;">{rec["description"]}</p>
     </div>
     """
     return html
