@@ -45,11 +45,17 @@ def create_donut_chart(emissions_dict):
     )])
     
     fig.update_layout(
+        title=dict(
+            text="Emissions Breakdown by Category",
+            font=dict(color="#F8FAFC", size=14),
+            x=0.5,
+            xanchor='center'
+        ),
         showlegend=False,
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#F8FAFC', size=12),
-        margin=dict(t=10, b=10, l=10, r=10),
+        margin=dict(t=40, b=10, l=10, r=10),
         height=320
     )
     
@@ -74,6 +80,9 @@ def create_bar_chart(emissions_dict):
         x=values,
         y=categories,
         orientation='h',
+        text=[f"{x:.2f} kg" for x in values],
+        textposition='auto',
+        textfont=dict(color='#F8FAFC', size=11),
         marker=dict(
             color=colors,
             line=dict(color='#1E293B', width=1)
@@ -82,6 +91,12 @@ def create_bar_chart(emissions_dict):
     )])
     
     fig.update_layout(
+        title=dict(
+            text="Daily Emissions by Category",
+            font=dict(color="#F8FAFC", size=14),
+            x=0.5,
+            xanchor='center'
+        ),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#F8FAFC'),
@@ -95,7 +110,7 @@ def create_bar_chart(emissions_dict):
             title="",
             autorange="reversed" # Read top to bottom
         ),
-        margin=dict(t=10, b=40, l=10, r=10),
+        margin=dict(t=40, b=40, l=10, r=10),
         height=320
     )
     
@@ -126,25 +141,25 @@ def create_projection_chart(monthly_emissions, annual_savings):
         
     fig = go.Figure()
     
-    # Baseline line
+    # Baseline line (dashed + circle markers)
     fig.add_trace(go.Scatter(
         x=months,
         y=baseline_cumulative,
         mode='lines+markers',
         name='Baseline (No Changes)',
         line=dict(color='#EF4444', width=3, dash='dash'),
-        marker=dict(size=6),
+        marker=dict(size=7, symbol='circle'),
         hovertemplate='Month: %{x}<br>Baseline: %{y:.1f} kg CO₂<extra></extra>'
     ))
     
-    # Target line (savings applied)
+    # Target line (solid + diamond markers)
     fig.add_trace(go.Scatter(
         x=months,
         y=target_cumulative,
         mode='lines+markers',
         name='Target (With Reductions)',
-        line=dict(color='#10B981', width=4),
-        marker=dict(size=8),
+        line=dict(color='#10B981', width=3, dash='solid'),
+        marker=dict(size=9, symbol='diamond'),
         hovertemplate='Month: %{x}<br>Target: %{y:.1f} kg CO₂<extra></extra>'
     ))
     

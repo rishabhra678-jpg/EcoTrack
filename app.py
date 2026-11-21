@@ -58,7 +58,7 @@ st.sidebar.markdown(
     """
     <div style='text-align: center; margin-bottom: 20px;'>
         <h2 style='color: #10B981; margin-bottom: 5px;'>🌱 EcoTrack</h2>
-        <p style='color: #94A3B8; font-size: 0.85rem;'>Adjust your daily activities below</p>
+        <p style='color: #CBD5E1; font-size: 0.9rem;'>Adjust your daily activities below</p>
     </div>
     """,
     unsafe_allow_html=True
@@ -66,22 +66,23 @@ st.sidebar.markdown(
 
 # Expanders in Sidebar for neat organization
 with st.sidebar.expander("🚗 Transportation", expanded=True):
-    car = st.slider("Daily Car Travel (km)", min_value=0.0, max_value=200.0, value=25.0, step=1.0)
-    bike = st.slider("Daily Bike Travel (km)", min_value=0.0, max_value=50.0, value=2.0, step=1.0)
-    bus = st.slider("Daily Bus Travel (km)", min_value=0.0, max_value=100.0, value=0.0, step=1.0)
-    train = st.slider("Daily Train Travel (km)", min_value=0.0, max_value=200.0, value=0.0, step=1.0)
+    car = st.slider("Daily Car Travel (km)", min_value=0.0, max_value=200.0, value=25.0, step=1.0, help="Estimated daily distance traveled by personal automobile in kilometers.")
+    bike = st.slider("Daily Bike Travel (km)", min_value=0.0, max_value=50.0, value=2.0, step=1.0, help="Estimated daily distance traveled by bicycle or e-bike in kilometers.")
+    bus = st.slider("Daily Bus Travel (km)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, help="Estimated daily distance commuted via local transit or bus in kilometers.")
+    train = st.slider("Daily Train Travel (km)", min_value=0.0, max_value=200.0, value=0.0, step=1.0, help="Estimated daily distance traveled via commuter rail or metro in kilometers.")
 
 with st.sidebar.expander("💡 Home Utilities", expanded=True):
-    electricity = st.slider("Monthly Electricity (kWh)", min_value=0, max_value=1200, value=320, step=10)
-    water = st.slider("Daily Water Usage (liters)", min_value=0, max_value=600, value=150, step=10)
+    electricity = st.slider("Monthly Electricity (kWh)", min_value=0, max_value=1200, value=320, step=10, help="Average monthly household electricity usage from your utility bill in kilowatt-hours (kWh).")
+    water = st.slider("Daily Water Usage (liters)", min_value=0, max_value=600, value=150, step=10, help="Estimated personal daily water usage in liters (bathing, cleaning, cooking).")
 
 with st.sidebar.expander("🥗 Diet & Waste Habits", expanded=True):
     food = st.selectbox(
         "Primary Diet / Food Habit",
         options=["Vegan", "Vegetarian", "Mixed Diet", "Heavy Meat Diet"],
-        index=2
+        index=2,
+        help="Select the dietary profile that most closely reflects your daily meals."
     )
-    waste = st.slider("Daily Waste Generated (kg)", min_value=0.0, max_value=10.0, value=1.5, step=0.1)
+    waste = st.slider("Daily Waste Generated (kg)", min_value=0.0, max_value=10.0, value=1.5, step=0.1, help="Estimated municipal solid waste/trash generated per person per day in kilograms.")
 
 with st.sidebar.expander("🤖 GenAI Settings (Gemini)", expanded=False):
     gemini_key_input = st.text_input(
@@ -127,10 +128,11 @@ with col_logo:
         try:
             img = Image.open(logo_path)
             _render_image(img)
+            st.markdown("<span class='sr-only'>EcoTrack Platform Logo</span>", unsafe_allow_html=True)
         except Exception:
-            st.markdown("<div style='font-size: 3rem;'>🌱</div>", unsafe_allow_html=True)
+            st.markdown("<div role='img' aria-label='EcoTrack Seedling Logo' style='font-size: 3rem;'>🌱</div>", unsafe_allow_html=True)
     else:
-        st.markdown("<div style='font-size: 3rem;'>🌱</div>", unsafe_allow_html=True)
+        st.markdown("<div role='img' aria-label='EcoTrack Seedling Logo' style='font-size: 3rem;'>🌱</div>", unsafe_allow_html=True)
 
 with col_title:
     st.markdown("<h1 class='main-title'>EcoTrack</h1>", unsafe_allow_html=True)
@@ -205,6 +207,22 @@ with tab_dash:
         st.markdown("<h3 style='color: #F8FAFC; font-size: 1.25rem; font-weight:600;'>Category Comparison</h3>", unsafe_allow_html=True)
         bar_fig = create_bar_chart(emissions)
         _render_plotly_chart(bar_fig)
+
+    # Accessible tabular representation for emissions breakdown
+    with st.expander("📊 View Emissions Breakdown Data Table (Accessible)", expanded=False):
+        emissions_table = [
+            {"Source": "Transportation", "Daily (kg CO₂)": emissions["transport"]["total_daily"], "Monthly (kg CO₂)": emissions["transport"]["total_daily"] * 30.0, "Share (%)": (emissions["transport"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0},
+            {"Source": "Home Electricity", "Daily (kg CO₂)": emissions["electricity"]["total_daily"], "Monthly (kg CO₂)": emissions["electricity"]["total_daily"] * 30.0, "Share (%)": (emissions["electricity"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0},
+            {"Source": "Diet / Food", "Daily (kg CO₂)": emissions["food"]["total_daily"], "Monthly (kg CO₂)": emissions["food"]["total_daily"] * 30.0, "Share (%)": (emissions["food"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0},
+            {"Source": "Water Usage", "Daily (kg CO₂)": emissions["water"]["total_daily"], "Monthly (kg CO₂)": emissions["water"]["total_daily"] * 30.0, "Share (%)": (emissions["water"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0},
+            {"Source": "Waste Disposal", "Daily (kg CO₂)": emissions["waste"]["total_daily"], "Monthly (kg CO₂)": emissions["waste"]["total_daily"] * 30.0, "Share (%)": (emissions["waste"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0},
+        ]
+        emissions_df = pd.DataFrame(emissions_table)
+        _render_dataframe(emissions_df.style.format({
+            "Daily (kg CO₂)": "{:.2f}",
+            "Monthly (kg CO₂)": "{:.1f}",
+            "Share (%)": "{:.1f}%"
+        }))
         
     # 4. Recommendation Cards
     st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 30px 0;'>", unsafe_allow_html=True)
@@ -264,7 +282,7 @@ with tab_ai:
         """
     )
     
-    if st.button("Run AI Prediction Model"):
+    if st.button("Run AI Prediction Model", help="Run the Random Forest Regressor to simulate next month's footprint."):
         with st.spinner("Analyzing current lifestyle and loading AI model..."):
             predicted_footprint = predict_next_month(
                 car_km=car, bike_km=bike, bus_km=bus, train_km=train,
@@ -311,10 +329,10 @@ with tab_goals:
     col_g1, col_g2 = st.columns(2)
     with col_g1:
         st.markdown("#### Set Weekly/Monthly Targets")
-        car_red = st.slider("Reduce Car Travel by (km / week)", min_value=0, max_value=500, value=50, step=5)
-        elec_red = st.slider("Reduce Electricity by (kWh / month)", min_value=0, max_value=300, value=40, step=5)
-        waste_red = st.slider("Reduce Daily Waste by (kg / day)", min_value=0.0, max_value=5.0, value=0.5, step=0.1)
-        diet_shift = st.slider("Go Plant-Based / Meat-Free (days / week)", min_value=0, max_value=7, value=2, step=1)
+        car_red = st.slider("Reduce Car Travel by (km / week)", min_value=0, max_value=500, value=50, step=5, help="Target reduction in weekly car driving distance in kilometers.")
+        elec_red = st.slider("Reduce Electricity by (kWh / month)", min_value=0, max_value=300, value=40, step=5, help="Target reduction in monthly electricity usage in kilowatt-hours.")
+        waste_red = st.slider("Reduce Daily Waste by (kg / day)", min_value=0.0, max_value=5.0, value=0.5, step=0.1, help="Target reduction in daily waste generation in kilograms.")
+        diet_shift = st.slider("Go Plant-Based / Meat-Free (days / week)", min_value=0, max_value=7, value=2, step=1, help="Number of days per week replacing meat meals with plant-based options.")
         
         # Calculate goal offsets
         # Car savings: km/week * 52 * 0.192
@@ -370,6 +388,28 @@ with tab_goals:
     st.markdown("#### 📅 12-Month Cumulative Projection Analysis", unsafe_allow_html=True)
     projection_fig = create_projection_chart(monthly_total, total_annual_savings)
     _render_plotly_chart(projection_fig)
+
+    with st.expander("📊 View 12-Month Projection Data Table (Accessible)", expanded=False):
+        months_arr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        m_savings = total_annual_savings / 12.0
+        proj_rows = []
+        b_acc = 0.0
+        t_acc = 0.0
+        for m_name in months_arr:
+            b_acc += monthly_total
+            t_acc += max(0.0, monthly_total - m_savings)
+            proj_rows.append({
+                "Month": m_name,
+                "Baseline Cumulative (kg CO₂)": b_acc,
+                "Target Cumulative (kg CO₂)": t_acc,
+                "Cumulative Savings (kg CO₂)": b_acc - t_acc
+            })
+        proj_df = pd.DataFrame(proj_rows)
+        _render_dataframe(proj_df.style.format({
+            "Baseline Cumulative (kg CO₂)": "{:.1f}",
+            "Target Cumulative (kg CO₂)": "{:.1f}",
+            "Cumulative Savings (kg CO₂)": "{:.1f}"
+        }))
 
 # ----------------- TAB 4: HISTORY & EXPORTS -----------------
 with tab_history:
@@ -468,10 +508,11 @@ with tab_air:
             value=st.session_state.get("air_quality_city", "Bhopal"),
             placeholder="Enter a city, e.g. Bhopal",
             key="air_quality_city_input",
+            help="Search for global modeled air quality forecasts by city name."
         )
     with refresh_col:
         st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
-        refresh_air = _render_button("Refresh data")
+        refresh_air = _render_button("Refresh data", help="Re-fetch the latest air-quality readings for this location.")
 
     if refresh_air:
         load_city_air_quality.clear()
@@ -552,6 +593,8 @@ with tab_air:
                         margin=dict(t=15, b=15, l=10, r=10), height=300,
                     )
                     _render_plotly_chart(fig_pollutants)
+                    with st.expander("📊 View Pollutant Concentrations Table (Accessible)", expanded=False):
+                        _render_dataframe(pollutant_df.style.format({"Concentration (µg/m³)": "{:.1f}"}))
                 else:
                     st.info("No pollutant concentration readings were returned.")
 
@@ -582,6 +625,7 @@ with tab_air:
                         margin=dict(t=0, b=0, l=0, r=0), height=300,
                     )
                 _render_plotly_chart(map_fig)
+                st.caption(f"📍 Coordinates: {location['latitude']:.4f}° N, {location['longitude']:.4f}° E · Timezone: {location.get('timezone', 'auto')}")
 
             hourly = air_payload.get("hourly", {})
             if hourly.get("time") and hourly.get("us_aqi"):
@@ -605,14 +649,17 @@ with tab_air:
                             margin=dict(t=15, b=15, l=10, r=10), height=280,
                         )
                         _render_plotly_chart(trend_fig)
+                        with st.expander("📊 View Hourly AQI Forecast Table (Accessible)", expanded=False):
+                            _render_dataframe(trend_df.style.format({"US AQI": "{:.0f}"}))
 
             st.markdown("#### Ask EcoTrack about this city's air")
             question = st.text_input(
                 "Your question",
                 placeholder="Is it a good time to go running?",
                 key="air_quality_question",
+                help="Ask questions about outdoor activities, masks, sensitive groups, or air quality."
             )
-            if st.button("Ask EcoTrack AI", key="ask_air_quality"):
+            if st.button("Ask EcoTrack AI", key="ask_air_quality", help="Get a grounded response based on the latest air quality readings."):
                 with st.spinner("EcoTrack AI is analyzing current atmospheric data..."):
                     answer = answer_air_quality_question(
                         question=question,

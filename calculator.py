@@ -112,7 +112,7 @@ def classify_footprint(daily_footprint):
             "category": "Eco Champion",
             "badge": "🟢 Emerald",
             "color": "#10B981",
-            "text_color": "#ffffff",
+            "text_color": "#0F172A",
             "description": "Exemplary lifestyle! Your choices have a very low climate impact. Keep it up!"
         }
     elif daily_footprint <= 20.0:
@@ -135,7 +135,7 @@ def classify_footprint(daily_footprint):
         return {
             "category": "High Impact",
             "badge": "🟠 Orange",
-            "color": "#F97316",
+            "color": "#EA580C",
             "text_color": "#ffffff",
             "description": "Your lifestyle contributes significantly to carbon emissions. Consider adopting our recommendations."
         }
@@ -143,7 +143,7 @@ def classify_footprint(daily_footprint):
         return {
             "category": "Critical Impact",
             "badge": "🔴 Red",
-            "color": "#EF4444",
+            "color": "#DC2626",
             "text_color": "#ffffff",
             "description": "High footprint warning! Immediate actions are recommended to reduce emissions across energy and transit."
         }

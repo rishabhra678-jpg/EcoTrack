@@ -29,10 +29,11 @@ def inject_custom_css():
         }
         
         .subtitle {
-            color: #94A3B8;
+            color: #CBD5E1;
             font-size: 1.1rem;
             margin-bottom: 2rem;
-            font-weight: 300;
+            font-weight: 400;
+            line-height: 1.5;
         }
         
         /* Glassmorphism Metric Cards */
@@ -45,7 +46,7 @@ def inject_custom_css():
         
         .metric-card {
             background: rgba(30, 41, 59, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 12px;
             padding: 20px;
             flex: 1;
@@ -63,7 +64,7 @@ def inject_custom_css():
         }
         
         .metric-label {
-            color: #94A3B8;
+            color: #CBD5E1;
             font-size: 0.85rem;
             text-transform: uppercase;
             font-weight: 600;
@@ -79,9 +80,9 @@ def inject_custom_css():
         
         .metric-sub {
             color: #10B981;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             margin-top: 5px;
-            font-weight: 500;
+            font-weight: 600;
         }
 
         /* Dynamic Badge Container */
@@ -107,6 +108,56 @@ def inject_custom_css():
             0% { transform: scale(1); }
             50% { transform: scale(1.02); }
             100% { transform: scale(1); }
+        }
+
+        /* High-contrast accessible focus states (WCAG 2.4.7 & 2.4.11) */
+        *:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+            outline: 3px solid #10B981 !important;
+            outline-offset: 3px !important;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.35) !important;
+        }
+
+        /* Respect user preference for reduced motion (WCAG 2.3.3) */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+            }
+            .badge-box, .main-title {
+                animation: none !important;
+            }
+        }
+
+        /* Responsive touch targets and mobile layout (WCAG 2.5.5 & 2.5.8) */
+        @media (max-width: 768px) {
+            .main-title {
+                font-size: 2.1rem !important;
+            }
+            .metric-container {
+                flex-direction: column !important;
+                gap: 12px !important;
+            }
+            .metric-card {
+                min-width: 100% !important;
+                padding: 16px !important;
+            }
+            .stButton>button {
+                width: 100% !important;
+            }
+        }
+
+        /* Screen-reader only utility */
+        .sr-only {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
         }
 
         /* Form slider tweaks for eco look */
