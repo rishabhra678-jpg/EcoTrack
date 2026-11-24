@@ -1,11 +1,5 @@
 """Tests for EcoTrack utility functions (session state, CSV reports, CSS)."""
-import pytest
-import pandas as pd
-from utils import (
-    initialize_session_state,
-    log_calculation_history,
-    generate_csv_report
-)
+from utils import generate_csv_report, initialize_session_state, log_calculation_history
 
 
 def test_generate_csv_report_structure():

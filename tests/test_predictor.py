@@ -1,13 +1,14 @@
 """Tests for EcoTrack carbon prediction engine (RandomForestRegressor)."""
 import os
-import pytest
+
 import pandas as pd
+
 from predictor import (
-    generate_synthetic_data,
-    train_and_save_model,
-    predict_next_month,
+    FOOD_MAP,
     MODEL_PATH,
-    FOOD_MAP
+    generate_synthetic_data,
+    predict_next_month,
+    train_and_save_model,
 )
 
 

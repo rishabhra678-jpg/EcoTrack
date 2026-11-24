@@ -1,19 +1,12 @@
 """Tests for Open-Meteo API client, analysis, and assistant modules."""
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 import requests
 
-from air_quality.api import (
-    geocode_city,
-    fetch_air_quality,
-    AirQualityError
-)
-from air_quality.analysis import (
-    aqi_category,
-    build_air_quality_insight
-)
+from air_quality.analysis import aqi_category, build_air_quality_insight
+from air_quality.api import AirQualityError, fetch_air_quality, geocode_city
 from air_quality.assistant import answer_air_quality_question
-
 
 # ---------------- API Tests ----------------
 
@@ -195,3 +188,15 @@ def test_answer_air_quality_question_sensitive_groups():
     current = {"us_aqi": 110}
     ans = answer_air_quality_question("Is it safe for children with asthma?", current)
     assert "Sensitive groups advisory" in ans
+
+
+def test_geocode_city_excessive_length_raises():
+    with pytest.raises(AirQualityError, match="maximum permitted length"):
+        geocode_city("A" * 105)
+
+
+def test_fetch_air_quality_out_of_bounds_coordinates():
+    with pytest.raises(AirQualityError, match="Invalid coordinates"):
+        fetch_air_quality(95.0, 10.0)
+    with pytest.raises(AirQualityError, match="Invalid coordinates"):
+        fetch_air_quality(10.0, 205.0)

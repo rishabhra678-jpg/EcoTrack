@@ -1,5 +1,4 @@
 """Tests for EcoTrack personalized recommendation generation."""
-import pytest
 from recommendations import generate_recommendations, render_recommendation_card
 
 

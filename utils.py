@@ -1,17 +1,25 @@
-import streamlit as st
-import pandas as pd
-from datetime import datetime
+"""UI styling, state management, and reporting utilities for EcoTrack."""
+from __future__ import annotations
 
-def inject_custom_css():
-    """
-    Injects custom CSS to style Streamlit components, offering a sleek, premium,
-    eco-themed Dark Mode experience with glassmorphism, gradients, and micro-animations.
+from collections.abc import Mapping
+from datetime import datetime
+from typing import Any
+
+import pandas as pd
+import streamlit as st
+
+
+def inject_custom_css() -> None:
+    """Inject custom CSS to style Streamlit components.
+
+    Offers a sleek, eco-themed Dark Mode experience with glassmorphism,
+    high-contrast WCAG 2.2 AA focus indicators, and reduced-motion safety.
     """
     css = """
     <style>
         /* Modern font load */
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
-        
+
         html, body, [class*="css"] {
             font-family: 'Outfit', sans-serif;
         }
@@ -27,7 +35,7 @@ def inject_custom_css():
             text-align: left;
             animation: fadeIn 1s ease-in-out;
         }
-        
+
         .subtitle {
             color: #CBD5E1;
             font-size: 1.1rem;
@@ -35,7 +43,7 @@ def inject_custom_css():
             font-weight: 400;
             line-height: 1.5;
         }
-        
+
         /* Glassmorphism Metric Cards */
         .metric-container {
             display: flex;
@@ -43,7 +51,7 @@ def inject_custom_css():
             margin-bottom: 25px;
             flex-wrap: wrap;
         }
-        
+
         .metric-card {
             background: rgba(30, 41, 59, 0.7);
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -56,13 +64,13 @@ def inject_custom_css():
             -webkit-backdrop-filter: blur(10px);
             transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
-        
+
         .metric-card:hover {
             transform: translateY(-5px);
             border-color: rgba(16, 185, 129, 0.4);
             box-shadow: 0 12px 40px 0 rgba(16, 185, 129, 0.1);
         }
-        
+
         .metric-label {
             color: #CBD5E1;
             font-size: 0.85rem;
@@ -71,13 +79,13 @@ def inject_custom_css():
             letter-spacing: 0.05em;
             margin-bottom: 8px;
         }
-        
+
         .metric-value {
             color: #F8FAFC;
             font-size: 1.8rem;
             font-weight: 700;
         }
-        
+
         .metric-sub {
             color: #10B981;
             font-size: 0.85rem;
@@ -103,7 +111,7 @@ def inject_custom_css():
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
+
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.02); }
@@ -164,7 +172,7 @@ def inject_custom_css():
         .stSlider > div [data-baseweb="slider"] {
             background-color: #1E293B;
         }
-        
+
         /* Expander headers */
         .streamlit-expanderHeader {
             background-color: rgba(30, 41, 59, 0.5) !important;
@@ -202,7 +210,7 @@ def inject_custom_css():
             color: #10B981 !important;
             font-weight: 700 !important;
         }
-        
+
         /* Rounded buttons */
         .stButton>button {
             border-radius: 8px;
@@ -213,14 +221,14 @@ def inject_custom_css():
             padding: 8px 24px;
             transition: all 0.2s ease;
         }
-        
+
         .stButton>button:hover {
             background-color: #059669;
             box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
             transform: scale(1.02);
             color: white;
         }
-        
+
         .stButton>button:active {
             transform: scale(0.98);
         }
@@ -228,10 +236,35 @@ def inject_custom_css():
     """
     st.markdown(css, unsafe_allow_html=True)
 
-def generate_csv_report(inputs, emissions, score, category):
+
+def generate_csv_report(
+    inputs: Mapping[str, Any],
+    emissions: Mapping[str, Any],
+    score: float | int,
+    category: str,
+) -> bytes:
+    """Build a structured DataFrame and compile a downloadable UTF-8 CSV report.
+
+    Args:
+        inputs: User input dictionary.
+        emissions: Calculated category and total emissions.
+        score: Computed sustainability score [0-100].
+        category: Sustainability tier label.
+
+    Returns:
+        UTF-8 encoded bytes suitable for Streamlit download button.
     """
-    Builds a DataFrame and compiles a downloadable CSV report of the user's carbon footprint.
-    """
+    transport_tot = float(emissions.get("transport", {}).get("total_daily", 0.0))
+    elec_tot = float(emissions.get("electricity", {}).get("total_daily", 0.0))
+    water_tot = float(emissions.get("water", {}).get("total_daily", 0.0))
+    food_tot = float(emissions.get("food", {}).get("total_daily", 0.0))
+    waste_tot = float(emissions.get("waste", {}).get("total_daily", 0.0))
+
+    totals = emissions.get("totals", {})
+    daily_tot = float(totals.get("daily", 0.0))
+    monthly_tot = float(totals.get("monthly", 0.0))
+    annual_tot = float(totals.get("annual", 0.0))
+
     report_data = {
         "Metric / Activity": [
             "Car Travel (km/day)",
@@ -251,78 +284,78 @@ def generate_csv_report(inputs, emissions, score, category):
             "Total Footprint (kg CO2/month)",
             "Total Footprint (kg CO2/year)",
             "Sustainability Score",
-            "Environmental Category"
+            "Environmental Category",
         ],
         "Value": [
-            inputs["car"],
-            inputs["bike"],
-            inputs["bus"],
-            inputs["train"],
-            inputs["electricity"],
-            inputs["water"],
-            inputs["food"],
-            inputs["waste"],
-            f"{emissions['transport']['total_daily']:.3f}",
-            f"{emissions['electricity']['total_daily']:.3f}",
-            f"{emissions['water']['total_daily']:.3f}",
-            f"{emissions['food']['total_daily']:.3f}",
-            f"{emissions['waste']['total_daily']:.3f}",
-            f"{emissions['totals']['daily']:.3f}",
-            f"{emissions['totals']['monthly']:.3f}",
-            f"{emissions['totals']['annual']:.3f}",
-            f"{score:.1f}",
-            category
+            inputs.get("car", 0.0),
+            inputs.get("bike", 0.0),
+            inputs.get("bus", 0.0),
+            inputs.get("train", 0.0),
+            inputs.get("electricity", 0.0),
+            inputs.get("water", 0.0),
+            str(inputs.get("food", "Mixed Diet")),
+            inputs.get("waste", 0.0),
+            f"{transport_tot:.3f}",
+            f"{elec_tot:.3f}",
+            f"{water_tot:.3f}",
+            f"{food_tot:.3f}",
+            f"{waste_tot:.3f}",
+            f"{daily_tot:.3f}",
+            f"{monthly_tot:.3f}",
+            f"{annual_tot:.3f}",
+            f"{float(score):.1f}",
+            str(category),
         ],
         "Unit": [
             "km", "km", "km", "km", "kWh", "liters", "text", "kg",
             "kg CO2/day", "kg CO2/day", "kg CO2/day", "kg CO2/day", "kg CO2/day",
-            "kg CO2/day", "kg CO2/month", "kg CO2/year", "out of 100", "category text"
-        ]
+            "kg CO2/day", "kg CO2/month", "kg CO2/year", "out of 100", "category text",
+        ],
     }
-    
-    df = pd.DataFrame(report_data)
-    csv = df.to_csv(index=False).encode('utf-8')
-    return csv
 
-def initialize_session_state():
-    """
-    Initializes tracking variables, history logs, and goal benchmarks in Streamlit session state.
-    """
+    df = pd.DataFrame(report_data)
+    csv_str = str(df.to_csv(index=False))
+    return csv_str.encode("utf-8")
+
+
+def initialize_session_state() -> None:
+    """Initialize tracking variables, history logs, and goal benchmarks in Streamlit session state."""
     if "history" not in st.session_state:
         st.session_state.history = []
-        
+
     if "goals" not in st.session_state:
         st.session_state.goals = {
             "car_reduction": 0.0,
             "electricity_reduction": 0.0,
             "waste_reduction": 0.0,
-            "meat_free_days": 0
+            "meat_free_days": 0,
         }
 
-def log_calculation_history(inputs, daily_footprint):
-    """
-    Logs the current footprint metrics into the history log with a timestamp.
-    Limits history to the 20 most recent entries.
+
+def log_calculation_history(inputs: dict[str, Any], daily_footprint: float | int) -> None:
+    """Log current footprint metrics into the history log with a timestamp.
+
+    Limits history to the 20 most recent unique entries, avoiding duplicate adjacent writes.
     """
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    
-    # Check if we should log (avoid duplicate adjacent logging on page refresh)
+    fp = float(daily_footprint)
+
+    # Avoid duplicate adjacent logging on repeated page reruns
     if st.session_state.history:
         last_log = st.session_state.history[-1]
-        # Skip logging if same footprint and within a short timeframe
-        if abs(last_log["daily_footprint"] - daily_footprint) < 0.001:
+        if isinstance(last_log, dict) and abs(last_log.get("daily_footprint", 0.0) - fp) < 0.001:
             return
-            
+
     log_entry = {
         "timestamp": timestamp,
-        "car": inputs["car"],
-        "electricity": inputs["electricity"],
-        "waste": inputs["waste"],
-        "food": inputs["food"],
-        "daily_footprint": daily_footprint
+        "car": inputs.get("car", 0.0),
+        "electricity": inputs.get("electricity", 0.0),
+        "waste": inputs.get("waste", 0.0),
+        "food": inputs.get("food", "Mixed Diet"),
+        "daily_footprint": fp,
     }
-    
+
     st.session_state.history.append(log_entry)
-    # Cap history at last 20 calculations
+    # Cap history at the 20 most recent calculations
     if len(st.session_state.history) > 20:
         st.session_state.history.pop(0)

@@ -1,52 +1,72 @@
-import os
+"""EcoTrack: Personal Carbon Footprint Awareness and Urban Air Quality Platform."""
+from __future__ import annotations
+
 import inspect
-import streamlit as st
+import os
+from typing import Any
+
 import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 from PIL import Image
 
+
 # Compatibility helpers for Streamlit container stretching across versions
-def _render_plotly_chart(fig, **kwargs):
+def _render_plotly_chart(fig: go.Figure, **kwargs: Any) -> Any:
     sig = inspect.signature(st.plotly_chart)
     if "width" in sig.parameters:
         return st.plotly_chart(fig, width="stretch", **kwargs)
     return st.plotly_chart(fig, use_container_width=True, **kwargs)
 
-def _render_button(label, **kwargs):
+
+def _render_button(label: str, **kwargs: Any) -> bool:
     sig = inspect.signature(st.button)
     if "width" in sig.parameters:
-        return st.button(label, width="stretch", **kwargs)
-    return st.button(label, use_container_width=True, **kwargs)
+        return bool(st.button(label, width="stretch", **kwargs))
+    return bool(st.button(label, use_container_width=True, **kwargs))
 
-def _render_image(image, **kwargs):
+
+def _render_image(image: Any, **kwargs: Any) -> Any:
     sig = inspect.signature(st.image)
     if "width" in sig.parameters:
         return st.image(image, width="stretch", **kwargs)
     return st.image(image, use_container_width=True, **kwargs)
 
-def _render_dataframe(data, **kwargs):
+
+def _render_dataframe(data: Any, **kwargs: Any) -> Any:
     sig = inspect.signature(st.dataframe)
     if "width" in sig.parameters:
         return st.dataframe(data, width="stretch", **kwargs)
     return st.dataframe(data, use_container_width=True, **kwargs)
+
 
 # Set Streamlit Page Configuration at the very top
 st.set_page_config(
     page_title="EcoTrack: Carbon Footprint Awareness Platform",
     page_icon="🌱",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
-# Import local modules
-from calculator import calculate_footprint, calculate_sustainability_score, classify_footprint
-from recommendations import generate_recommendations, render_recommendation_card
-from visualizations import create_donut_chart, create_bar_chart, create_projection_chart
-from predictor import predict_next_month
-from utils import inject_custom_css, generate_csv_report, initialize_session_state, log_calculation_history
-from air_quality.api import AirQualityError, fetch_air_quality, geocode_city
+# Local module imports
 from air_quality.analysis import aqi_category, build_air_quality_insight
+from air_quality.api import AirQualityError, GeocodedLocation, fetch_air_quality, geocode_city
 from air_quality.assistant import answer_air_quality_question
+from calculator import (
+    DEFAULT_FACTORS,
+    calculate_footprint,
+    calculate_sustainability_score,
+    classify_footprint,
+)
+from predictor import predict_next_month
+from recommendations import generate_recommendations, render_recommendation_card
+from utils import (
+    generate_csv_report,
+    initialize_session_state,
+    inject_custom_css,
+    log_calculation_history,
+)
+from visualizations import create_bar_chart, create_donut_chart, create_projection_chart
 
 # Initialize session state logs & CSS styles
 initialize_session_state()
@@ -60,41 +80,100 @@ st.sidebar.markdown(
         <p style='color: #CBD5E1; font-size: 0.9rem;'>Adjust your daily activities below</p>
     </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 # Expanders in Sidebar for neat organization
 with st.sidebar.expander("🚗 Transportation", expanded=True):
-    car = st.slider("Daily Car Travel (km)", min_value=0.0, max_value=200.0, value=25.0, step=1.0, help="Estimated daily distance traveled by personal automobile in kilometers.")
-    bike = st.slider("Daily Bike Travel (km)", min_value=0.0, max_value=50.0, value=2.0, step=1.0, help="Estimated daily distance traveled by bicycle or e-bike in kilometers.")
-    bus = st.slider("Daily Bus Travel (km)", min_value=0.0, max_value=100.0, value=0.0, step=1.0, help="Estimated daily distance commuted via local transit or bus in kilometers.")
-    train = st.slider("Daily Train Travel (km)", min_value=0.0, max_value=200.0, value=0.0, step=1.0, help="Estimated daily distance traveled via commuter rail or metro in kilometers.")
+    car = st.slider(
+        "Daily Car Travel (km)",
+        min_value=0.0,
+        max_value=200.0,
+        value=25.0,
+        step=1.0,
+        help="Estimated daily distance traveled by personal automobile in kilometers.",
+    )
+    bike = st.slider(
+        "Daily Bike Travel (km)",
+        min_value=0.0,
+        max_value=50.0,
+        value=2.0,
+        step=1.0,
+        help="Estimated daily distance traveled by bicycle or e-bike in kilometers.",
+    )
+    bus = st.slider(
+        "Daily Bus Travel (km)",
+        min_value=0.0,
+        max_value=100.0,
+        value=0.0,
+        step=1.0,
+        help="Estimated daily distance commuted via local transit or bus in kilometers.",
+    )
+    train = st.slider(
+        "Daily Train Travel (km)",
+        min_value=0.0,
+        max_value=200.0,
+        value=0.0,
+        step=1.0,
+        help="Estimated daily distance traveled via commuter rail or metro in kilometers.",
+    )
 
 with st.sidebar.expander("💡 Home Utilities", expanded=True):
-    electricity = st.slider("Monthly Electricity (kWh)", min_value=0, max_value=1200, value=320, step=10, help="Average monthly household electricity usage from your utility bill in kilowatt-hours (kWh).")
-    water = st.slider("Daily Water Usage (liters)", min_value=0, max_value=600, value=150, step=10, help="Estimated personal daily water usage in liters (bathing, cleaning, cooking).")
+    electricity = st.slider(
+        "Monthly Electricity (kWh)",
+        min_value=0,
+        max_value=1200,
+        value=320,
+        step=10,
+        help="Average monthly household electricity usage from your utility bill in kilowatt-hours (kWh).",
+    )
+    water = st.slider(
+        "Daily Water Usage (liters)",
+        min_value=0,
+        max_value=600,
+        value=150,
+        step=10,
+        help="Estimated personal daily water usage in liters (bathing, cleaning, cooking).",
+    )
 
 with st.sidebar.expander("🥗 Diet & Waste Habits", expanded=True):
     food = st.selectbox(
         "Primary Diet / Food Habit",
         options=["Vegan", "Vegetarian", "Mixed Diet", "Heavy Meat Diet"],
         index=2,
-        help="Select the dietary profile that most closely reflects your daily meals."
+        help="Select the dietary profile that most closely reflects your daily meals.",
     )
-    waste = st.slider("Daily Waste Generated (kg)", min_value=0.0, max_value=10.0, value=1.5, step=0.1, help="Estimated municipal solid waste/trash generated per person per day in kilograms.")
+    waste = st.slider(
+        "Daily Waste Generated (kg)",
+        min_value=0.0,
+        max_value=10.0,
+        value=1.5,
+        step=0.1,
+        help="Estimated municipal solid waste/trash generated per person per day in kilograms.",
+    )
 
 # Group user inputs together
-user_inputs = {
-    "car": car, "bike": bike, "bus": bus, "train": train,
-    "electricity": electricity, "water": water,
-    "food": food, "waste": waste
+user_inputs: dict[str, Any] = {
+    "car": car,
+    "bike": bike,
+    "bus": bus,
+    "train": train,
+    "electricity": electricity,
+    "water": water,
+    "food": food,
+    "waste": waste,
 }
 
 # Run Calculator
 emissions = calculate_footprint(
-    car_km=car, bike_km=bike, bus_km=bus, train_km=train,
-    electricity_kwh=electricity, water_liters=water,
-    food_habit=food, waste_kg=waste
+    car_km=car,
+    bike_km=bike,
+    bus_km=bus,
+    train_km=train,
+    electricity_kwh=electricity,
+    water_liters=water,
+    food_habit=food,
+    waste_kg=waste,
 )
 
 # Extract calculations
@@ -134,7 +213,7 @@ tab_dash, tab_ai, tab_goals, tab_history, tab_air, tab_learn = st.tabs([
     "🎯 Reduction Goals",
     "⏳ Session History",
     "🌫️ Urban Air Quality",
-    "📖 Learn More"
+    "📖 Learn More",
 ])
 
 # ----------------- TAB 1: DASHBOARD -----------------
@@ -152,11 +231,19 @@ with tab_dash:
             {classification["description"]}
         </p>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
-    
+
     # 2. Glassmorphism metrics row
-    score_label = "Excellent" if sustainability_score >= 80 else "Good" if sustainability_score >= 60 else "Moderate" if sustainability_score >= 40 else "Needs Work"
+    score_label = (
+        "Excellent"
+        if sustainability_score >= 80
+        else "Good"
+        if sustainability_score >= 60
+        else "Moderate"
+        if sustainability_score >= 40
+        else "Needs Work"
+    )
     st.markdown(
         f"""
         <div class="metric-container">
@@ -172,7 +259,7 @@ with tab_dash:
             </div>
             <div class="metric-card">
                 <div class="metric-label">Annual Projected</div>
-                <div class="metric-value">{annual_total/1000.0:.2f} tons</div>
+                <div class="metric-value">{annual_total / 1000.0:.2f} tons</div>
                 <div class="metric-sub">CO₂ / year</div>
             </div>
             <div class="metric-card">
@@ -182,16 +269,16 @@ with tab_dash:
             </div>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
-    
+
     # 3. Visualization columns
     col_donut, col_bar = st.columns(2)
     with col_donut:
         st.markdown("<h3 style='color: #F8FAFC; font-size: 1.25rem; font-weight:600;'>Emissions Breakdown</h3>", unsafe_allow_html=True)
         donut_fig = create_donut_chart(emissions)
         _render_plotly_chart(donut_fig)
-        
+
     with col_bar:
         st.markdown("<h3 style='color: #F8FAFC; font-size: 1.25rem; font-weight:600;'>Category Comparison</h3>", unsafe_allow_html=True)
         bar_fig = create_bar_chart(emissions)
@@ -200,29 +287,59 @@ with tab_dash:
     # Accessible tabular representation for emissions breakdown
     with st.expander("📊 View Emissions Breakdown Data Table (Accessible)", expanded=False):
         emissions_table = [
-            {"Source": "Transportation", "Daily (kg CO₂)": emissions["transport"]["total_daily"], "Monthly (kg CO₂)": emissions["transport"]["total_daily"] * 30.0, "Share (%)": (emissions["transport"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0},
-            {"Source": "Home Electricity", "Daily (kg CO₂)": emissions["electricity"]["total_daily"], "Monthly (kg CO₂)": emissions["electricity"]["total_daily"] * 30.0, "Share (%)": (emissions["electricity"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0},
-            {"Source": "Diet / Food", "Daily (kg CO₂)": emissions["food"]["total_daily"], "Monthly (kg CO₂)": emissions["food"]["total_daily"] * 30.0, "Share (%)": (emissions["food"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0},
-            {"Source": "Water Usage", "Daily (kg CO₂)": emissions["water"]["total_daily"], "Monthly (kg CO₂)": emissions["water"]["total_daily"] * 30.0, "Share (%)": (emissions["water"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0},
-            {"Source": "Waste Disposal", "Daily (kg CO₂)": emissions["waste"]["total_daily"], "Monthly (kg CO₂)": emissions["waste"]["total_daily"] * 30.0, "Share (%)": (emissions["waste"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0},
+            {
+                "Source": "Transportation",
+                "Daily (kg CO₂)": emissions["transport"]["total_daily"],
+                "Monthly (kg CO₂)": emissions["transport"]["total_daily"] * 30.0,
+                "Share (%)": (emissions["transport"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0,
+            },
+            {
+                "Source": "Home Electricity",
+                "Daily (kg CO₂)": emissions["electricity"]["total_daily"],
+                "Monthly (kg CO₂)": emissions["electricity"]["total_daily"] * 30.0,
+                "Share (%)": (emissions["electricity"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0,
+            },
+            {
+                "Source": "Diet / Food",
+                "Daily (kg CO₂)": emissions["food"]["total_daily"],
+                "Monthly (kg CO₂)": emissions["food"]["total_daily"] * 30.0,
+                "Share (%)": (emissions["food"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0,
+            },
+            {
+                "Source": "Water Usage",
+                "Daily (kg CO₂)": emissions["water"]["total_daily"],
+                "Monthly (kg CO₂)": emissions["water"]["total_daily"] * 30.0,
+                "Share (%)": (emissions["water"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0,
+            },
+            {
+                "Source": "Waste Disposal",
+                "Daily (kg CO₂)": emissions["waste"]["total_daily"],
+                "Monthly (kg CO₂)": emissions["waste"]["total_daily"] * 30.0,
+                "Share (%)": (emissions["waste"]["total_daily"] / daily_total * 100.0) if daily_total > 0 else 0.0,
+            },
         ]
         emissions_df = pd.DataFrame(emissions_table)
         _render_dataframe(emissions_df.style.format({
             "Daily (kg CO₂)": "{:.2f}",
             "Monthly (kg CO₂)": "{:.1f}",
-            "Share (%)": "{:.1f}%"
+            "Share (%)": "{:.1f}%",
         }))
-        
+
     # 4. Recommendation Cards
     st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 30px 0;'>", unsafe_allow_html=True)
     st.markdown("<h3 style='color: #10B981; margin-bottom: 15px;'>🌱 Personalized Recommendations for Carbon Reduction</h3>", unsafe_allow_html=True)
-    
+
     recs = generate_recommendations(
-        car_km=car, bike_km=bike, bus_km=bus, train_km=train,
-        electricity_kwh=electricity, water_liters=water,
-        food_habit=food, waste_kg=waste
+        car_km=car,
+        bike_km=bike,
+        bus_km=bus,
+        train_km=train,
+        electricity_kwh=electricity,
+        water_liters=water,
+        food_habit=food,
+        waste_kg=waste,
     )
-    
+
     for r in recs:
         st.markdown(render_recommendation_card(r), unsafe_allow_html=True)
 
@@ -231,29 +348,34 @@ with tab_ai:
     st.markdown("### 🤖 Next-Month Carbon Prediction Engine")
     st.write(
         """
-        Using a machine learning **Random Forest Regressor** trained on synthetic lifestyle profiles, 
-        EcoTrack simulates next month's footprint. The model factors in potential **seasonal variations** 
+        Using a machine learning **Random Forest Regressor** trained on synthetic lifestyle profiles,
+        EcoTrack simulates next month's footprint. The model factors in potential **seasonal variations**
         (e.g., HVAC electricity loads) and random lifestyle changes to project your future impact.
         """
     )
-    
+
     if st.button("Run AI Prediction Model", help="Run the Random Forest Regressor to simulate next month's footprint."):
         with st.spinner("Analyzing current lifestyle and loading AI model..."):
             predicted_footprint = predict_next_month(
-                car_km=car, bike_km=bike, bus_km=bus, train_km=train,
-                electricity_kwh=electricity, water_liters=water,
-                food_habit=food, waste_kg=waste
+                car_km=car,
+                bike_km=bike,
+                bus_km=bus,
+                train_km=train,
+                electricity_kwh=electricity,
+                water_liters=water,
+                food_habit=food,
+                waste_kg=waste,
             )
-            
+
         difference = predicted_footprint - monthly_total
-        pct_change = (difference / monthly_total) * 100
-        
+        pct_change = (difference / monthly_total) * 100 if monthly_total > 0 else 0.0
+
         # Display Prediction Card
         card_bg = "rgba(16, 185, 129, 0.15)" if difference <= 0 else "rgba(239, 68, 68, 0.15)"
         border_col = "#10B981" if difference <= 0 else "#EF4444"
         arrow = "⬇️" if difference <= 0 else "⬆️"
         status_text = "decrease" if difference <= 0 else "increase"
-        
+
         st.markdown(
             f"""
             <div style="background-color: {card_bg}; border: 1px solid {border_col}; border-radius: 12px; padding: 25px; margin-top: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
@@ -262,13 +384,13 @@ with tab_ai:
                     {predicted_footprint:.1f} kg CO₂ / month
                 </div>
                 <p style="margin: 0; color: #CBD5E1; line-height: 1.5; font-size: 1rem;">
-                    {arrow} Your monthly footprint is predicted to <strong>{status_text} by {abs(pct_change):.1f}%</strong> 
-                    ({abs(difference):.1f} kg CO₂) compared to this month ({monthly_total:.1f} kg CO₂), due to seasonal weather 
+                    {arrow} Your monthly footprint is predicted to <strong>{status_text} by {abs(pct_change):.1f}%</strong>
+                    ({abs(difference):.1f} kg CO₂) compared to this month ({monthly_total:.1f} kg CO₂), due to seasonal weather
                     fluctuations and simulated consumption variability.
                 </p>
             </div>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
 # ----------------- TAB 3: REDUCTION GOALS -----------------
@@ -276,32 +398,61 @@ with tab_goals:
     st.markdown("### 🎯 Carbon Reduction Commitments")
     st.write(
         """
-        Commit to reducing your daily resource usage. See how these lifestyle tweaks translate into annual carbon offsets 
+        Commit to reducing your daily resource usage. See how these lifestyle tweaks translate into annual carbon offsets
         and check your progress line against the baseline forecast.
         """
     )
-    
+
     col_g1, col_g2 = st.columns(2)
     with col_g1:
         st.markdown("#### Set Weekly/Monthly Targets")
-        car_red = st.slider("Reduce Car Travel by (km / week)", min_value=0, max_value=500, value=50, step=5, help="Target reduction in weekly car driving distance in kilometers.")
-        elec_red = st.slider("Reduce Electricity by (kWh / month)", min_value=0, max_value=300, value=40, step=5, help="Target reduction in monthly electricity usage in kilowatt-hours.")
-        waste_red = st.slider("Reduce Daily Waste by (kg / day)", min_value=0.0, max_value=5.0, value=0.5, step=0.1, help="Target reduction in daily waste generation in kilograms.")
-        diet_shift = st.slider("Go Plant-Based / Meat-Free (days / week)", min_value=0, max_value=7, value=2, step=1, help="Number of days per week replacing meat meals with plant-based options.")
-        
-        # Calculate goal offsets
-        # Car savings: km/week * 52 * 0.192
-        car_savings = car_red * 52 * 0.192
-        # Electricity savings: kWh/month * 12 * 0.82
-        elec_savings = elec_red * 12 * 0.82
-        # Waste savings: kg/day * 365 * 0.57
-        waste_savings = waste_red * 365 * 0.57
-        # Diet savings (assuming going from heavy meat to vegan equivalent savings: (7-2)=5 kg CO2/day saved)
-        diet_savings = diet_shift * 52 * 5.0
-        
+        car_red = st.slider(
+            "Reduce Car Travel by (km / week)",
+            min_value=0,
+            max_value=500,
+            value=50,
+            step=5,
+            help="Target reduction in weekly car driving distance in kilometers.",
+        )
+        elec_red = st.slider(
+            "Reduce Electricity by (kWh / month)",
+            min_value=0,
+            max_value=300,
+            value=40,
+            step=5,
+            help="Target reduction in monthly electricity usage in kilowatt-hours.",
+        )
+        waste_red = st.slider(
+            "Reduce Daily Waste by (kg / day)",
+            min_value=0.0,
+            max_value=5.0,
+            value=0.5,
+            step=0.1,
+            help="Target reduction in daily waste generation in kilograms.",
+        )
+        diet_shift = st.slider(
+            "Go Plant-Based / Meat-Free (days / week)",
+            min_value=0,
+            max_value=7,
+            value=2,
+            step=1,
+            help="Number of days per week replacing meat meals with plant-based options.",
+        )
+
+        # Calculate goal offsets using verified factors
+        car_factor = DEFAULT_FACTORS.get("Car", 0.192)
+        grid_factor = DEFAULT_FACTORS.get("Grid", 0.82)
+        waste_factor = DEFAULT_FACTORS.get("Trash", 0.57)
+
+        car_savings = car_red * 52.0 * car_factor
+        elec_savings = elec_red * 12.0 * grid_factor
+        waste_savings = waste_red * 365.0 * waste_factor
+        # Diet savings: shifting from heavy meat (7 kg/day) to vegan (2 kg/day) = 5.0 kg/day saved
+        diet_savings = diet_shift * 52.0 * 5.0
+
         total_annual_savings = car_savings + elec_savings + waste_savings + diet_savings
-        pct_footprint_reduced = (total_annual_savings / annual_total) * 100 if annual_total > 0 else 0
-        
+        pct_footprint_reduced = (total_annual_savings / annual_total) * 100.0 if annual_total > 0 else 0.0
+
     with col_g2:
         st.markdown("#### Annual Environmental Savings")
         st.markdown(
@@ -314,13 +465,13 @@ with tab_goals:
                 </div>
             </div>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
-        
+
         # Equivalence metrics
-        trees_planted = total_annual_savings / 22.0 # 1 mature tree absorbs ~22kg CO2/year
-        smartphone_charges = total_annual_savings / 0.008 # 1 smartphone charge is ~8g CO2
-        
+        trees_planted = total_annual_savings / 22.0  # 1 mature tree absorbs ~22kg CO2/year
+        smartphone_charges = total_annual_savings / 0.008  # 1 smartphone charge is ~8g CO2
+
         st.markdown(
             f"""
             <div style="display: flex; gap: 15px; margin-top: 10px;">
@@ -336,9 +487,9 @@ with tab_goals:
                 </div>
             </div>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
-        
+
     st.markdown("<hr style='border-color: rgba(255,255,255,0.05); margin: 25px 0;'>", unsafe_allow_html=True)
     st.markdown("#### 📅 12-Month Cumulative Projection Analysis", unsafe_allow_html=True)
     projection_fig = create_projection_chart(monthly_total, total_annual_savings)
@@ -357,13 +508,13 @@ with tab_goals:
                 "Month": m_name,
                 "Baseline Cumulative (kg CO₂)": b_acc,
                 "Target Cumulative (kg CO₂)": t_acc,
-                "Cumulative Savings (kg CO₂)": b_acc - t_acc
+                "Cumulative Savings (kg CO₂)": b_acc - t_acc,
             })
         proj_df = pd.DataFrame(proj_rows)
         _render_dataframe(proj_df.style.format({
             "Baseline Cumulative (kg CO₂)": "{:.1f}",
             "Target Cumulative (kg CO₂)": "{:.1f}",
-            "Cumulative Savings (kg CO₂)": "{:.1f}"
+            "Cumulative Savings (kg CO₂)": "{:.1f}",
         }))
 
 # ----------------- TAB 4: HISTORY & EXPORTS -----------------
@@ -371,23 +522,23 @@ with tab_history:
     st.markdown("### ⏳ Session Log & Report Export")
     st.write(
         """
-        Track how adjustments to sliders alter your footprint. Download your carbon calculator worksheet 
+        Track how adjustments to sliders alter your footprint. Download your carbon calculator worksheet
         as a standard CSV file for record-keeping.
         """
     )
-    
+
     # 1. Download CSV Button
     csv_data = generate_csv_report(user_inputs, emissions, sustainability_score, classification["category"])
-    
+
     st.download_button(
         label="Download Footprint Report (CSV)",
         data=csv_data,
         file_name="EcoTrack_Carbon_Report.csv",
-        mime="text/csv"
+        mime="text/csv",
     )
-    
+
     st.markdown("<br>", unsafe_allow_html=True)
-    
+
     # 2. History table
     if st.session_state.history:
         history_df = pd.DataFrame(st.session_state.history)
@@ -398,43 +549,47 @@ with tab_history:
             "electricity": "Electricity (kWh/mo)",
             "waste": "Waste (kg/day)",
             "food": "Diet Type",
-            "daily_footprint": "Footprint (kg CO₂/day)"
+            "daily_footprint": "Footprint (kg CO₂/day)",
         })
-        
+
         st.markdown("#### Saved Activity Log")
         _render_dataframe(display_df.style.format({
             "Car (km/day)": "{:.1f}",
             "Electricity (kWh/mo)": "{:.0f}",
             "Waste (kg/day)": "{:.1f}",
-            "Footprint (kg CO₂/day)": "{:.2f}"
+            "Footprint (kg CO₂/day)": "{:.2f}",
         }))
-        
+
         # 3. History trend chart
         if len(st.session_state.history) > 1:
             st.markdown("#### Footprint Progress Trend")
-            trend_fig = go.Figure(data=[go.Scatter(
-                x=history_df["timestamp"],
-                y=history_df["daily_footprint"],
-                mode='lines+markers',
-                line=dict(color='#10B981', width=3),
-                marker=dict(size=8, color='#059669')
-            )])
+            trend_fig = go.Figure(
+                data=[
+                    go.Scatter(
+                        x=history_df["timestamp"],
+                        y=history_df["daily_footprint"],
+                        mode="lines+markers",
+                        line=dict(color="#10B981", width=3),
+                        marker=dict(size=8, color="#059669"),
+                    )
+                ]
+            )
             trend_fig.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#F8FAFC'),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#F8FAFC"),
                 xaxis=dict(
                     title="Time of Calculation",
-                    gridcolor='#334155',
-                    zerolinecolor='#334155'
+                    gridcolor="#334155",
+                    zerolinecolor="#334155",
                 ),
                 yaxis=dict(
                     title="Daily Footprint (kg CO₂)",
-                    gridcolor='#334155',
-                    zerolinecolor='#334155'
+                    gridcolor="#334155",
+                    zerolinecolor="#334155",
                 ),
                 margin=dict(t=10, b=40, l=10, r=10),
-                height=250
+                height=250,
             )
             _render_plotly_chart(trend_fig)
     else:
@@ -449,12 +604,12 @@ with tab_air:
     )
 
     @st.cache_data(ttl=900, show_spinner=False)
-    def load_city_air_quality(city_name):
-        location = geocode_city(city_name)
+    def load_city_air_quality(city_name: str) -> tuple[GeocodedLocation, dict[str, Any]]:
+        loc = geocode_city(city_name)
         payload = fetch_air_quality(
-            location["latitude"], location["longitude"], location.get("timezone", "auto")
+            loc["latitude"], loc["longitude"], loc.get("timezone", "auto")
         )
-        return location, payload
+        return loc, payload
 
     city_col, refresh_col = st.columns([4, 1])
     with city_col:
@@ -463,7 +618,7 @@ with tab_air:
             value=st.session_state.get("air_quality_city", "Bhopal"),
             placeholder="Enter a city, e.g. Bhopal",
             key="air_quality_city_input",
-            help="Search for global modeled air quality forecasts by city name."
+            help="Search for global modeled air quality forecasts by city name.",
         )
     with refresh_col:
         st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
@@ -489,7 +644,7 @@ with tab_air:
                 "Source: Open-Meteo modelled air-quality data · AQI scale: US EPA"
             )
 
-            def _fmt_metric_int(val):
+            def _fmt_metric_int(val: Any) -> str:
                 if val is None:
                     return "N/A"
                 try:
@@ -497,7 +652,7 @@ with tab_air:
                 except (ValueError, TypeError):
                     return "N/A"
 
-            def _fmt_metric_float(val, unit=""):
+            def _fmt_metric_float(val: Any, unit: str = "") -> str:
                 if val is None:
                     return "N/A"
                 try:
@@ -519,9 +674,12 @@ with tab_air:
             )
 
             pollutant_labels = {
-                "pm2_5": "PM2.5", "pm10": "PM10",
-                "nitrogen_dioxide": "NO₂", "sulphur_dioxide": "SO₂",
-                "ozone": "O₃", "carbon_monoxide": "CO",
+                "pm2_5": "PM2.5",
+                "pm10": "PM10",
+                "nitrogen_dioxide": "NO₂",
+                "sulphur_dioxide": "SO₂",
+                "ozone": "O₃",
+                "carbon_monoxide": "CO",
             }
             pollutant_values = []
             for key, label in pollutant_labels.items():
@@ -537,15 +695,20 @@ with tab_air:
                 st.markdown("#### Pollutant readings")
                 if pollutant_values:
                     pollutant_df = pd.DataFrame(pollutant_values)
-                    fig_pollutants = go.Figure(go.Bar(
-                        x=pollutant_df["Pollutant"],
-                        y=pollutant_df["Concentration (µg/m³)"],
-                        marker_color="#10B981",
-                    ))
+                    fig_pollutants = go.Figure(
+                        go.Bar(
+                            x=pollutant_df["Pollutant"],
+                            y=pollutant_df["Concentration (µg/m³)"],
+                            marker_color="#10B981",
+                        )
+                    )
                     fig_pollutants.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                        font_color="#F8FAFC", yaxis_title="µg/m³",
-                        margin=dict(t=15, b=15, l=10, r=10), height=300,
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font_color="#F8FAFC",
+                        yaxis_title="µg/m³",
+                        margin=dict(t=15, b=15, l=10, r=10),
+                        height=300,
                     )
                     _render_plotly_chart(fig_pollutants)
                     with st.expander("📊 View Pollutant Concentrations Table (Accessible)", expanded=False):
@@ -556,31 +719,49 @@ with tab_air:
             with right:
                 st.markdown("#### City location")
                 if hasattr(go, "Scattermap"):
-                    map_fig = go.Figure(go.Scattermap(
-                        lat=[location["latitude"]], lon=[location["longitude"]],
-                        mode="markers", marker=dict(size=18, color="#10B981"),
-                        text=[location["name"]], hoverinfo="text",
-                    ))
+                    map_fig = go.Figure(
+                        go.Scattermap(
+                            lat=[location["latitude"]],
+                            lon=[location["longitude"]],
+                            mode="markers",
+                            marker=dict(size=18, color="#10B981"),
+                            text=[location["name"]],
+                            hoverinfo="text",
+                        )
+                    )
                     map_fig.update_layout(
-                        map=dict(style="open-street-map", center=dict(
-                            lat=location["latitude"], lon=location["longitude"]
-                        ), zoom=9),
-                        margin=dict(t=0, b=0, l=0, r=0), height=300,
+                        map=dict(
+                            style="open-street-map",
+                            center=dict(lat=location["latitude"], lon=location["longitude"]),
+                            zoom=9,
+                        ),
+                        margin=dict(t=0, b=0, l=0, r=0),
+                        height=300,
                     )
                 else:
-                    map_fig = go.Figure(go.Scattermapbox(
-                        lat=[location["latitude"]], lon=[location["longitude"]],
-                        mode="markers", marker=dict(size=18, color="#10B981"),
-                        text=[location["name"]], hoverinfo="text",
-                    ))
+                    map_fig = go.Figure(
+                        go.Scattermapbox(
+                            lat=[location["latitude"]],
+                            lon=[location["longitude"]],
+                            mode="markers",
+                            marker=dict(size=18, color="#10B981"),
+                            text=[location["name"]],
+                            hoverinfo="text",
+                        )
+                    )
                     map_fig.update_layout(
-                        mapbox=dict(style="open-street-map", center=dict(
-                            lat=location["latitude"], lon=location["longitude"]
-                        ), zoom=9),
-                        margin=dict(t=0, b=0, l=0, r=0), height=300,
+                        mapbox=dict(
+                            style="open-street-map",
+                            center=dict(lat=location["latitude"], lon=location["longitude"]),
+                            zoom=9,
+                        ),
+                        margin=dict(t=0, b=0, l=0, r=0),
+                        height=300,
                     )
                 _render_plotly_chart(map_fig)
-                st.caption(f"📍 Coordinates: {location['latitude']:.4f}° N, {location['longitude']:.4f}° E · Timezone: {location.get('timezone', 'auto')}")
+                st.caption(
+                    f"📍 Coordinates: {location['latitude']:.4f}° N, {location['longitude']:.4f}° E · Timezone: {location.get('timezone', 'auto')}"
+                )
 
             hourly = air_payload.get("hourly", {})
             if hourly.get("time") and hourly.get("us_aqi"):
@@ -589,19 +770,30 @@ with tab_air:
                 min_len = min(len(times), len(aqis))
                 if min_len > 0:
                     st.markdown("#### AQI trend · next available forecast hours")
-                    trend_df = pd.DataFrame({
-                        "Time": pd.to_datetime(times[:min_len]),
-                        "US AQI": aqis[:min_len],
-                    }).dropna().head(24)
+                    trend_df = (
+                        pd.DataFrame({
+                            "Time": pd.to_datetime(times[:min_len]),
+                            "US AQI": aqis[:min_len],
+                        })
+                        .dropna()
+                        .head(24)
+                    )
                     if not trend_df.empty:
-                        trend_fig = go.Figure(go.Scatter(
-                            x=trend_df["Time"], y=trend_df["US AQI"],
-                            mode="lines+markers", line=dict(color="#10B981", width=3),
-                        ))
+                        trend_fig = go.Figure(
+                            go.Scatter(
+                                x=trend_df["Time"],
+                                y=trend_df["US AQI"],
+                                mode="lines+markers",
+                                line=dict(color="#10B981", width=3),
+                            )
+                        )
                         trend_fig.update_layout(
-                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                            font_color="#F8FAFC", yaxis_title="US AQI",
-                            margin=dict(t=15, b=15, l=10, r=10), height=280,
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)",
+                            font_color="#F8FAFC",
+                            yaxis_title="US AQI",
+                            margin=dict(t=15, b=15, l=10, r=10),
+                            height=280,
                         )
                         _render_plotly_chart(trend_fig)
                         with st.expander("📊 View Hourly AQI Forecast Table (Accessible)", expanded=False):
@@ -612,9 +804,13 @@ with tab_air:
                 "Your question",
                 placeholder="Is it a good time to go running?",
                 key="air_quality_question",
-                help="Ask questions about outdoor activities, masks, sensitive groups, or air quality."
+                help="Ask questions about outdoor activities, masks, sensitive groups, or air quality.",
             )
-            if st.button("Ask EcoTrack AI", key="ask_air_quality", help="Get a grounded response based on the latest air quality readings."):
+            if st.button(
+                "Ask EcoTrack AI",
+                key="ask_air_quality",
+                help="Get a grounded response based on the latest air quality readings.",
+            ):
                 st.markdown(answer_air_quality_question(question, current))
 
             with st.expander("How to interpret this data"):
@@ -627,11 +823,10 @@ with tab_air:
 
         except AirQualityError as exc:
             st.error(str(exc))
-        except (KeyError, TypeError, ValueError) as exc:
+        except (KeyError, TypeError, ValueError):
             st.error("The air-quality response was incomplete or could not be displayed. Please refresh and try again.")
     else:
         st.info("Enter a city name to view its air-quality estimates.")
-
 
 # ----------------- TAB 6: LEARN MORE -----------------
 with tab_learn:
@@ -639,13 +834,13 @@ with tab_learn:
     st.markdown(
         """
         #### What is a Carbon Footprint?
-        A carbon footprint represents the total greenhouse gas (GHG) emissions caused directly and indirectly by an individual, 
-        organization, event, or product. It is expressed in carbon dioxide equivalents ($CO_2e$) to standardize the warming impacts 
+        A carbon footprint represents the total greenhouse gas (GHG) emissions caused directly and indirectly by an individual,
+        organization, event, or product. It is expressed in carbon dioxide equivalents ($CO_2e$) to standardize the warming impacts
         of various gases like methane ($CH_4$) and nitrous oxide ($N_2O$).
 
         #### Calculation Methodologies
         EcoTrack calculates footprints by multiplying activity rates by verified emission factors:
-        
+
         $$\\text{Emission} = \\text{Activity Quantity} \\times \\text{Emission Factor}$$
 
         Our database references parameters from environmental bodies:

@@ -1,6 +1,7 @@
 """End-to-end Streamlit AppTest suite verifying UI integrity, widgets, and workflows."""
 import os
 from unittest.mock import MagicMock, patch
+
 import pytest
 from streamlit.testing.v1 import AppTest
 

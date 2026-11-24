@@ -1,11 +1,11 @@
 """Tests for EcoTrack carbon footprint calculator logic."""
 import pytest
+
 from calculator import (
-    load_emission_factors,
     calculate_footprint,
     calculate_sustainability_score,
     classify_footprint,
-    DEFAULT_FACTORS
+    load_emission_factors,
 )
 
 
@@ -115,3 +115,43 @@ def test_classify_footprint_edge_thresholds():
     assert classify_footprint(40.001)["category"] == "High Impact"
     assert classify_footprint(60.0)["category"] == "High Impact"
     assert classify_footprint(60.001)["category"] == "Critical Impact"
+
+
+def test_coerce_non_negative_helper():
+    from calculator import _coerce_non_negative
+    assert _coerce_non_negative(15.5) == 15.5
+    assert _coerce_non_negative(-10.0) == 0.0
+    assert _coerce_non_negative("-5.5") == 0.0
+    assert _coerce_non_negative(None, default=2.0) == 2.0
+    assert _coerce_non_negative("invalid", default=3.0) == 3.0
+
+
+def test_calculate_footprint_negative_and_none_handled():
+    # Negative inputs should be coerced to 0 rather than resulting in negative emissions
+    res = calculate_footprint(
+        car_km=-50,
+        bike_km=-10,
+        bus_km=-5,
+        train_km=-10,
+        electricity_kwh=-100,
+        water_liters=-20,
+        food_habit="Mixed Diet",
+        waste_kg=-5,
+    )
+    assert res["transport"]["total_daily"] == 0.0
+    assert res["electricity"]["total_daily"] == 0.0
+    assert res["water"]["total_daily"] == 0.0
+    assert res["waste"]["total_daily"] == 0.0
+    assert res["totals"]["daily"] > 0  # Food still has baseline
+
+
+def test_emission_factors_lru_cache():
+    # Verify load_emission_factors uses lru_cache
+    load_emission_factors.cache_clear()
+    info_before = load_emission_factors.cache_info()
+    assert info_before.hits == 0
+
+    load_emission_factors()
+    load_emission_factors()
+    info_after = load_emission_factors.cache_info()
+    assert info_after.hits >= 1
